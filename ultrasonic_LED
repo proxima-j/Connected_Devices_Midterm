@@ -1,0 +1,40 @@
+#define ledPin 2
+#define trigPin 3
+#define echoPin 4
+
+long duration;
+int distance;
+int safetyDistance;
+  
+
+void setup() {
+pinMode(ledPin, OUTPUT);
+pinMode(trigPin, OUTPUT);
+pinMode(echoPin, INPUT); 
+
+Serial.begin(9600); 
+}
+
+
+void loop() {
+
+digitalWrite(trigPin, LOW);
+delay(100);
+digitalWrite(trigPin, HIGH);
+delay(100);
+digitalWrite(trigPin, LOW);
+
+duration = pulseIn(echoPin, HIGH);
+distance= duration*0.034/2;
+safetyDistance = distance;
+
+if (safetyDistance <= 60){
+    digitalWrite(ledPin, HIGH);
+}
+else{
+    digitalWrite(ledPin, LOW);
+}
+
+Serial.print("Cm : ");
+Serial.println(distance);
+}
