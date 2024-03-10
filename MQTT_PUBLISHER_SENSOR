@@ -1,0 +1,94 @@
+#include <ArduinoMqttClient.h>
+#include <WiFiNINA.h>
+
+#define ledPin 2
+#define trigPin 3
+#define echoPin 4
+
+
+// Declare global variables
+long duration; 
+int distance;
+int safetyDistance;
+int message;
+
+WiFiClient wifi;
+MqttClient mqtt(wifi);
+
+// WiFi network info
+const char wifi_ssid[] = "sandbox370";
+const char wifi_pass[] = "+s0a+s03!2gether?";
+
+// MQTT broker info
+const char broker[] = "theyonetwork.cloud.shiftr.io";
+const int port = 1883;
+
+// MQTT authentication credentials
+const char mqtt_user[] = "theyonetwork";
+const char mqtt_pass[] = "ConnDevSP24";
+
+// Topic this device will publish messages to
+const char pubTopic[] = "caaaaara";
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(ledPin, OUTPUT);
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+
+  Serial.print("Attempting to connect to WiFi");
+  while (WiFi.begin(wifi_ssid, wifi_pass) != WL_CONNECTED) {
+    Serial.print(".");
+    delay(1000);
+  }
+  Serial.println("\nWiFi connected!");
+
+  mqtt.setUsernamePassword(mqtt_user, mqtt_pass);
+  
+  Serial.print("Attempting to connect to the MQTT broker: ");
+  Serial.println(broker);
+  if (!mqtt.connect(broker, port)) {
+    Serial.print("MQTT connection failed! Error code = ");
+    Serial.println(mqtt.connectError());
+    while (true) {}; // Halt on error
+  }
+  Serial.println("Connected to the MQTT broker!");
+  
+  Serial.println("Setup complete!");
+}
+
+
+void loop() {
+ 
+digitalWrite(trigPin, LOW);
+delay(100);
+digitalWrite(trigPin, HIGH);
+delay(100);
+digitalWrite(trigPin, LOW);
+
+duration = pulseIn(echoPin, HIGH);
+distance= duration*0.034/2;
+safetyDistance = distance;
+
+if (safetyDistance <= 60){
+    digitalWrite(ledPin, HIGH);
+    message = 1;
+}
+else{
+    digitalWrite(ledPin, LOW);
+    message = 0;
+}
+
+Serial.print("Cm : ");
+Serial.println(distance);
+    
+    // Send MQTT message 
+    mqtt.beginMessage(pubTopic);
+    mqtt.print(message);
+    mqtt.endMessage();
+    delay(10); // Add a small delay to allow the message to be sent properly
+  // } else {
+  //   // If the switch is open or closed:
+  //   digitalWrite(2, LOW);  // Turn off the yellow LED
+  // }
+}
