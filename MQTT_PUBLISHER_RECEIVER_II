@@ -1,0 +1,107 @@
+#include <ArduinoMqttClient.h>
+#include <WiFiNINA.h>
+#include <Arduino_LSM6DS3.h>
+
+// WiFi network info
+const char ssid[] = "sandbox370";        // your network SSID
+const char pass[] = "+s0a+s03!2gether?";  // your network password
+
+// MQTT broker info
+const char broker[] = "theyonetwork.cloud.shiftr.io";
+const int port = 1883;
+
+// MQTT authentication credentials
+const char mqtt_user[] = "theyonetwork";
+const char mqtt_pass[] = "ConnDevSP24";
+
+// Topics
+const char pubTopic[] = "caaaaara2"; // Topic to publish sensor data
+//const char subTopic[] = "real_unique_topic_2"; // Topic to subscribe for controlling LED
+const char subTopic[] = "caaaaara1";
+
+// Pins
+#define ledPin 2   // LED controlled by MQTT message
+#define trigPin 3  // Ultrasonic sensor trigger pin
+#define echoPin 4  // Ultrasonic sensor echo pin
+
+WiFiClient wifiClient;
+MqttClient mqttClient(wifiClient);
+
+long duration; 
+int distance;
+int safetyDistance = 60; // Threshold distance in cm
+
+void setup() {
+  Serial.begin(9600);
+
+  pinMode(ledPin, OUTPUT);
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+
+  // Connect to WiFi
+  Serial.print("Attempting to connect to SSID: ");
+  Serial.println(ssid);
+  while (WiFi.begin(ssid, pass) != WL_CONNECTED) {
+    Serial.print(".");
+    delay(1000);
+  }
+  Serial.println("You're connected to the network");
+
+  // Connect to MQTT Broker
+  Serial.print("Attempting to connect to the MQTT broker: ");
+  Serial.println(broker);
+  mqttClient.setUsernamePassword(mqtt_user, mqtt_pass);
+  if (!mqttClient.connect(broker, port)) {
+    Serial.print("MQTT connection failed! Error code = ");
+    Serial.println(mqttClient.connectError());
+    while (1);
+  }
+  Serial.println("You're connected to the MQTT broker!");
+
+  // Set the message receive callback
+  mqttClient.onMessage(onMqttMessage);
+
+  // Subscribe to topics
+  mqttClient.subscribe(subTopic);
+  Serial.print("Subscribed to topic: ");
+  Serial.println(subTopic);
+}
+
+void loop() {
+  mqttClient.poll();
+  
+  // Measure distance
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  duration = pulseIn(echoPin, HIGH);
+  distance = duration * 0.034 / 2;
+  
+  // Check distance and publish state
+  int message = (distance <= safetyDistance) ? 1 : 0;
+  mqttClient.beginMessage(pubTopic);
+  mqttClient.print(message);
+  mqttClient.endMessage();
+
+  Serial.print("Distance: ");
+  Serial.print(distance);
+  Serial.println(" cm");
+
+  delay(1000); // Delay between sensor readings and MQTT publications
+}
+
+void onMqttMessage(int messageSize) {
+  String message;
+  while (mqttClient.available()) {
+    message += (char)mqttClient.read();
+  }
+
+  Serial.print("Received a message from MQTT: ");
+  Serial.println(message);
+
+  // Interpret the message as an integer and update LED state accordingly
+  int parsedValue = message.toInt();
+  digitalWrite(ledPin, parsedValue == 0 ? LOW : HIGH);
+}
