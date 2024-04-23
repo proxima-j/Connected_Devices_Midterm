@@ -1,0 +1,141 @@
+[
+    {
+        "id": "http_request_node",
+        "type": "http request",
+        "z": "69e1f677a7bf391b",
+        "name": "Fetch Temperature",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&current=temperature_2m",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 390,
+        "y": 1160,
+        "wires": [
+            [
+                "function_node"
+            ]
+        ]
+    },
+    {
+        "id": "function_node",
+        "type": "function",
+        "z": "69e1f677a7bf391b",
+        "name": "Map Temperature",
+        "func": "// Assuming temperature data is in msg.payload.current.temperature_2m\nlet temperature = msg.payload.current.temperature_2m;\nlet tempMin = -10;\nlet tempMax = 30;\nfunction mapTemperature(temp, min, max) {\n    temp = Math.max(min, Math.min(max, temp));\n    return Math.round((temp - min) * 255 / (max - min));\n}\nmsg.payload = mapTemperature(temperature, tempMin, tempMax);\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 590,
+        "y": 1160,
+        "wires": [
+            [
+                "mqtt_out",
+                "f30407a53b22b94e"
+            ]
+        ]
+    },
+    {
+        "id": "mqtt_out",
+        "type": "mqtt out",
+        "z": "69e1f677a7bf391b",
+        "name": "Publish Temperature",
+        "topic": "temperature/data",
+        "qos": "2",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "f714323d4424016c",
+        "x": 840,
+        "y": 1160,
+        "wires": []
+    },
+    {
+        "id": "ca63bb04323f808b",
+        "type": "inject",
+        "z": "69e1f677a7bf391b",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "*/1 0-22 * * *",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 190,
+        "y": 1160,
+        "wires": [
+            [
+                "http_request_node"
+            ]
+        ]
+    },
+    {
+        "id": "f30407a53b22b94e",
+        "type": "debug",
+        "z": "69e1f677a7bf391b",
+        "name": "debug 6",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 860,
+        "y": 1280,
+        "wires": []
+    },
+    {
+        "id": "f714323d4424016c",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "theyonetwork.cloud.shiftr.io",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    }
+]
