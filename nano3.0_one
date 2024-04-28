@@ -1,0 +1,89 @@
+#include <Wire.h>
+#include <Adafruit_NeoPixel.h>
+
+// Constants for the NeoPixel LED strip
+#define PIN 9             // The pin the NeoPixel is connected to
+#define NUMPIXELS 24      // Number of LEDs in the strip
+
+// Global variables to store received data
+int data[2]; // Array to store the two pieces of received data
+
+// Define your desired color here (R, G, B)
+int baseRed = 255;
+int baseGreen = 100;
+int baseBlue = 50;
+
+// Define the "close" color
+int closeRed = 0;
+int closeGreen = 0;
+int closeBlue = 255;
+
+// Create the NeoPixel object
+Adafruit_NeoPixel myPixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
+
+void setup() {
+  Serial.begin(9600);
+  myPixels.begin(); // Initialize the NeoPixel library
+  myPixels.show();  // Initialize all pixels to 'off'
+
+  // Start I2C as a slave with address 8
+  Wire.begin(8);
+  Wire.onReceive(receiveEvent); // Register the receive event callback function
+}
+
+void loop() {
+  int ReceivedUltrasonic = data[0]; // Received ultrasonic data from I2C
+  int APIReading = data[1];         // Received API reading from I2C
+  
+  int MappedAPI = map(APIReading, 2, 255, 500, 2000); // Map the API reading to a delay value
+  int currentDelayTime = MappedAPI / 255;             // Calculate the current delay time
+
+  // Apply the color and effect based on the ReceivedUltrasonic
+  applyColorAndEffect(ReceivedUltrasonic, currentDelayTime);
+  
+  delay(10); // Small delay to prevent the loop from running too quickly
+}
+
+void receiveEvent(int howMany) {
+  int index = 0; // Index to keep track of the number of integers received
+
+  // Process the incoming bytes as long as we have at least 2 bytes and we have space in the array
+  while (Wire.available() >= 2 && index < 2) {
+    int receivedInt = Wire.read() << 8; // Read high byte and shift it to high position
+    receivedInt |= Wire.read();         // Read low byte and combine with high byte
+    data[index++] = receivedInt;        // Store the received integer in the data array
+  }
+}
+
+void applyColorAndEffect(int receivedUltrasonic, int delayTime) {
+  uint32_t currentColor;
+  for (int brightness = 0; brightness <= 255; brightness++) {
+    currentColor = myPixels.Color(
+      (receivedUltrasonic == 1 ? closeRed : baseRed) * brightness / 255,
+      (receivedUltrasonic == 1 ? closeGreen : baseGreen) * brightness / 255,
+      (receivedUltrasonic == 1 ? closeBlue : baseBlue) * brightness / 255
+    );
+
+    for (int i = 0; i < NUMPIXELS; i++) {
+      myPixels.setPixelColor(i, currentColor);
+    }
+    myPixels.show();
+    delay(delayTime);  // Use modified delay based on API reading
+  }
+
+  for (int brightness = 255; brightness >= 0; brightness--) {
+    currentColor = myPixels.Color(
+      (receivedUltrasonic == 1 ? closeRed : baseRed) * brightness / 255,
+      (receivedUltrasonic == 1 ? closeGreen : baseGreen) * brightness / 255,
+      (receivedUltrasonic == 1 ? closeBlue : baseBlue) * brightness / 255
+    );
+
+    for (int i = 0; i < NUMPIXELS; i++) {
+      myPixels.setPixelColor(i, currentColor);
+    }
+    myPixels.show();
+    delay(delayTime);  // Use the same modified delay
+  }
+}
+
+
