@@ -1,0 +1,138 @@
+#include <ArduinoMqttClient.h>
+#include <WiFiNINA.h>
+#include <Wire.h>
+
+// WiFi network info
+const char ssid[] = "sandbox370";        // Your network SSID
+const char pass[] = "+s0a+s03!2gether?";  // Your network password
+
+// MQTT broker info
+const char broker[] = "theyonetwork.cloud.shiftr.io";
+const int port = 1883;
+
+// MQTT authentication credentials
+const char mqtt_user[] = "theyonetwork";
+const char mqtt_pass[] = "ConnDevSP24";
+
+// Topics
+const char pubTopic[] = "caaaaara1";  // Topic to publish sensor data
+const char subTopic[] = "caaaaara2";  // Topic to subscribe for controlling LED
+const char subTemTopic[] = "temperature/data";  // Topic to subscribe for temperature data
+
+// Pins
+#define ledPin 2   // LED controlled by MQTT message
+#define trigPin 3  // Ultrasonic sensor trigger pin
+#define echoPin 4  // Ultrasonic sensor echo pin
+
+WiFiClient wifiClient;
+MqttClient mqttClient(wifiClient);
+
+long duration;
+int distance = 0;  // Initialize to a safe value
+int safetyDistance = 60;  // Threshold distance in cm
+int ledState = -1;  // Initialize to -1 to indicate "unupdated"
+int temperature = -1;  // Initialize to -1 to indicate "unupdated"
+
+// Array to hold values to send
+int intList[4] = {0, 0, 0, 0}; // Initialize with zeros or safe values
+
+void setup() {
+  Serial.begin(9600);
+  
+  // Initialize I2C as master
+  Wire.begin();
+
+  pinMode(ledPin, OUTPUT);
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+
+  // Connect to WiFi
+  Serial.print("Attempting to connect to SSID: ");
+  Serial.println(ssid);
+  while (WiFi.begin(ssid, pass) != WL_CONNECTED) {
+    Serial.print(".");
+    delay(1000);
+  }
+  Serial.println("\nYou're connected to the network");
+
+  // Connect to MQTT Broker
+  Serial.print("Attempting to connect to the MQTT broker: ");
+  Serial.println(broker);
+  mqttClient.setUsernamePassword(mqtt_user, mqtt_pass);
+  if (!mqttClient.connect(broker, port)) {
+    Serial.print("MQTT connection failed! Error code = ");
+    Serial.println(mqttClient.connectError());
+    while (1);
+  }
+  Serial.println("You're connected to the MQTT broker!");
+
+  // Set the message receive callback
+  mqttClient.onMessage(onMqttMessage);
+
+  // Subscribe to topics
+  mqttClient.subscribe(subTopic);
+  mqttClient.subscribe(subTemTopic);
+  Serial.print("Subscribed to topics: ");
+  Serial.print(subTopic);
+  Serial.print(" and ");
+  Serial.println(subTemTopic);
+}
+
+void loop() {
+  mqttClient.poll();
+
+  // Measure distance
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  duration = pulseIn(echoPin, HIGH);
+  distance = duration * 0.034 / 2;  // Update the global variable
+
+  // Check distance and publish state
+  int message = (distance <= safetyDistance) ? 1 : 0;
+  mqttClient.beginMessage(pubTopic);
+  mqttClient.print(message);
+  mqttClient.endMessage();
+
+  // Update intList with the latest distance and temperature
+  intList[2] = message;    // Use index 2 for distance
+  intList[3] = temperature; // Use index 3 for temperature
+
+  // Send updated intList over I2C
+  Wire.beginTransmission(8); // Start transmission to device with address 8
+  for (int i = 0; i < 4; ++i) {
+    Wire.write(highByte(intList[i]));   // Send high byte
+    Wire.write(lowByte(intList[i]));    // Send low byte
+  }
+  Wire.endTransmission(); // Stop transmitting
+
+  // Print out the values you are sending over I2C for debugging
+  Serial.print("Sending over I2C: [");
+  for (int i = 0; i < 4; i++) {
+    Serial.print(intList[i]);
+    if (i < 3) Serial.print(", ");
+  }
+  Serial.println("]");
+
+  delay(10000);  // Delay between sensor readings and MQTT publications
+}
+
+void onMqttMessage(int messageSize) {
+  String topic = mqttClient.messageTopic();
+  String message;
+
+  while (mqttClient.available()) {
+    char c = (char)mqttClient.read();
+    message += c;
+  }
+
+  if (topic.equals(subTopic)) {
+    ledState = message.toInt();
+    digitalWrite(ledPin, ledState ? HIGH : LOW);
+    Serial.println("LED state updated based on MQTT message.");
+  } else if (topic.equals(subTemTopic)) {
+    temperature = message.toInt();  // Update the global variable
+  }
+}
