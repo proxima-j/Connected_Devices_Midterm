@@ -34,7 +34,7 @@ int ledState = -1;  // Initialize to -1 to indicate "unupdated"
 int temperature = -1;  // Initialize to -1 to indicate "unupdated"
 
 // Array to hold values to send
-int intList[4] = {0, 0, 0, 0}; // Initialize with zeros or safe values
+int intList[2] = {0, 0}; // Initialize with zeros or safe values
 
 void setup() {
   Serial.begin(9600);
@@ -97,12 +97,12 @@ void loop() {
   mqttClient.endMessage();
 
   // Update intList with the latest distance and temperature
-  intList[2] = message;    // Use index 2 for distance
-  intList[3] = temperature; // Use index 3 for temperature
+  intList[0] = message;    // Use index 2 for distance
+  intList[1] = temperature; // Use index 3 for temperature
 
   // Send updated intList over I2C
   Wire.beginTransmission(8); // Start transmission to device with address 8
-  for (int i = 0; i < 4; ++i) {
+  for (int i = 0; i < 2; ++i) {
     Wire.write(highByte(intList[i]));   // Send high byte
     Wire.write(lowByte(intList[i]));    // Send low byte
   }
@@ -110,9 +110,9 @@ void loop() {
 
   // Print out the values you are sending over I2C for debugging
   Serial.print("Sending over I2C: [");
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 2; i++) {
     Serial.print(intList[i]);
-    if (i < 3) Serial.print(", ");
+    if (i < 1) Serial.print(", ");
   }
   Serial.println("]");
 
