@@ -1,0 +1,19 @@
+#include <Wire.h>
+
+void setup() {
+  Wire.begin(8); // Initialize as a slave with address 8
+  Wire.onReceive(receiveEvent); // Register receive event
+  Serial.begin(9600); // Start serial communication
+}
+
+void loop() {
+  delay(100); // Wait for events
+}
+
+void receiveEvent(int howMany) {
+  while (Wire.available() >= 2) { // Make sure we have at least 2 bytes for an int
+    int receivedInt = Wire.read() << 8; // Read high byte and shift it to high position
+    receivedInt |= Wire.read();         // Read low byte and combine with high byte
+    Serial.println(receivedInt);        // Print the integer
+  }
+}
