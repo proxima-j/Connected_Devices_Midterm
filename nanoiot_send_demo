@@ -1,0 +1,18 @@
+#include <Wire.h>
+
+void setup() {
+  Wire.begin(); // Start I2C as master
+}
+
+void loop() {
+  int intList[4] = {123, 456, 789, 234}; // Example integers to send
+
+  Wire.beginTransmission(8); // Start transmission to device with address 8
+  for (int i = 0; i < 4; ++i) {
+    Wire.write((byte)(intList[i] >> 8));   // Send high byte
+    Wire.write((byte)(intList[i] & 0xFF)); // Send low byte
+  }
+  Wire.endTransmission(); // Stop transmitting
+
+  delay(1000); // Send data every second
+}
