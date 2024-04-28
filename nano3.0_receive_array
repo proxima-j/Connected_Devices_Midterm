@@ -1,0 +1,34 @@
+#include <Wire.h>
+
+int data[2]; // Array to store the two pieces of received data
+
+void setup() {
+  Wire.begin(8); // Initialize as a slave with address 8
+  Wire.onReceive(receiveEvent); // Register receive event
+  Serial.begin(9600); // Start serial communication
+}
+
+void loop() {
+  delay(100); // Wait for events
+}
+
+void receiveEvent(int howMany) {
+  int index = 0; // Start at the first element of the array
+
+  // Process the incoming bytes as long as we have at least 2 bytes and we have space in the array
+  while (Wire.available() >= 2 && index < 2) { 
+    int receivedInt = Wire.read() << 8; // Read high byte and shift it to high position
+    receivedInt |= Wire.read();         // Read low byte and combine with high byte
+    data[index++] = receivedInt;        // Store the received integer in the array
+  }
+
+  // After receiving the two integers, print them as required
+  if (index == 2) { // Ensure that we have received two integers
+    Serial.print("Message: ");
+    Serial.println(data[0]); // The first integer is considered 'message'
+    Serial.print("Temperature: ");
+    Serial.println(data[1]); // The second integer is considered 'temperature'
+    // Serial.println(data)
+  }
+}
+
