@@ -1,0 +1,125 @@
+#include "programmable_air.h"
+#include <Adafruit_NeoPixel.h>
+#include <Wire.h>
+
+#define PIN 9         // The pin the NeoPixel is connected to
+#define PIN2 8
+#define NUMPIXELS 24  // Number of LEDs in the strip
+
+// Global variables to store received data
+int data[2];  // Array to store the two pieces of received data
+
+// Define your desired color here (R, G, B)
+int baseRed = 255;
+int baseGreen = 100;
+int baseBlue = 50;
+
+// Define the "close" color
+int closeRed = 0;
+int closeGreen = 0;
+int closeBlue = 255;
+
+int APIReading;
+int MappedAPI;
+
+// Initialize Adafruit_NeoPixel object with the number of pixels and pin number
+Adafruit_NeoPixel myPixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel myPixels2(NUMPIXELS,PIN2, NEO_GRB + NEO_KHZ800);
+
+void setup() {
+  Serial.begin(115200);  // Initialize serial communication at 115200 baud rate
+
+  myPixels.begin();      // Initialize the NeoPixel strip
+  myPixels.show();       // Initialize all pixels to 'off'
+  myPixels2.begin();      // Initialize the NeoPixel strip
+  myPixels2.show();       // Initialize all pixels to 'off'
+
+  initializePins();
+
+  Wire.begin(8);
+  Wire.onReceive(receiveEvent);  // Register the receive event callback function
+}
+
+void receiveEvent(int howMany) {
+  int index = 0;  // Index to keep track of the number of integers received
+
+  // Process the incoming bytes as long as we have at least 2 bytes and we have space in the array
+  while (Wire.available() >= 2 && index < 2) {
+    int receivedInt = Wire.read() << 8;  // Read high byte and shift it to high position
+    receivedInt |= Wire.read();          // Read low byte and combine with high byte
+    data[index++] = receivedInt;         // Store the received integer in the data array
+  }
+}
+
+void loop() {
+
+
+  int receivedUltrasonic = data[0];  // Received ultrasonic data from I2C
+  int APIReading = data[1];          // Received API reading from I2C
+
+  int MappedAPI = map(APIReading, 2, 255, 500, 2000);
+
+  // Task 1: Fade in & Blow Air
+  for (int brightness = 0; brightness <= 255; brightness++) {
+    //LED1
+    uint32_t dimmedColor = myPixels.Color(
+      (receivedUltrasonic == 1 ? closeRed : baseRed) * brightness / 255,
+      (receivedUltrasonic == 1 ? closeGreen : baseGreen) * brightness / 255,
+      (receivedUltrasonic == 1 ? closeBlue : baseBlue) * brightness / 255);  // Dynamically create dimmed red color
+    // Fade in LEDs
+    for (int i = 0; i < NUMPIXELS; i++) {
+      myPixels.setPixelColor(i, dimmedColor);
+    }
+    myPixels.show();
+
+    //LED2
+        uint32_t dimmedColor2 = myPixels2.Color(
+      (receivedUltrasonic == 1 ? closeRed : baseRed) * brightness / 255,
+      (receivedUltrasonic == 1 ? closeGreen : baseGreen) * brightness / 255,
+      (receivedUltrasonic == 1 ? closeBlue : baseBlue) * brightness / 255);  // Dynamically create dimmed red color
+    // Fade in LEDs
+    for (int i = 0; i < NUMPIXELS; i++) {
+      myPixels2.setPixelColor(i, dimmedColor2);
+    }
+    myPixels2.show();
+
+    // Blow air
+    switchOnPump(2);
+    blow();  // Example: setValve(2, OPEN); setValve(1, CLOSED); setValve(3, CLOSED);
+
+    delay(MappedAPI / 255);  // Divide by 255 to ensure the total time matches MappedAPI
+  }
+
+  // Task 2: Fade out & Suck Air
+  for (int brightness = 255; brightness >= 0; brightness--) {
+    //LED1
+    uint32_t dimmedColor = myPixels.Color(
+      (receivedUltrasonic == 1 ? closeRed : baseRed) * brightness / 255,
+      (receivedUltrasonic == 1 ? closeGreen : baseGreen) * brightness / 255,
+      (receivedUltrasonic == 1 ? closeBlue : baseBlue) * brightness / 255); 
+      // Dynamically create dimmed red color
+    // Fade out LEDs
+    for (int i = 0; i < NUMPIXELS; i++) {
+      myPixels.setPixelColor(i, dimmedColor);
+    }
+    myPixels.show();
+
+    //LED2
+       uint32_t dimmedColor2 = myPixels2.Color(
+      (receivedUltrasonic == 1 ? closeRed : baseRed) * brightness / 255,
+      (receivedUltrasonic == 1 ? closeGreen : baseGreen) * brightness / 255,
+      (receivedUltrasonic == 1 ? closeBlue : baseBlue) * brightness / 255); 
+      // Dynamically create dimmed red color
+    // Fade out LEDs
+    for (int i = 0; i < NUMPIXELS; i++) {
+      myPixels2.setPixelColor(i, dimmedColor2);
+    }
+    myPixels2.show();
+
+    // Suck air
+    switchOnPump(1);
+    suck();
+
+    delay(MappedAPI / 255);  // Divide by 255 to ensure the total time matches MappedAPI
+  }
+}
