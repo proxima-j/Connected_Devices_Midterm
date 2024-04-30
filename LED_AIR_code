@@ -1,0 +1,54 @@
+#include "programmable_air.h"
+#include <Adafruit_NeoPixel.h>
+
+#define PIN 9             // The pin the NeoPixel is connected to
+#define NUMPIXELS 24      // Number of LEDs in the strip
+
+int APIReading = 200;
+int MappedAPI;
+
+// Initialize Adafruit_NeoPixel object with the number of pixels and pin number
+Adafruit_NeoPixel myPixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
+
+void setup() {
+  Serial.begin(115200);  // Initialize serial communication at 115200 baud rate
+  myPixels.begin();      // Initialize the NeoPixel strip
+  myPixels.show();       // Initialize all pixels to 'off'
+  initializePins();
+}
+
+void loop() {
+  MappedAPI = map(APIReading, 2, 255, 500, 2000);
+
+  // Task 1: Fade in & Blow Air
+  for (int brightness = 0; brightness <= 255; brightness++) {
+    uint32_t dimmedColor = myPixels.Color(brightness, 0, 0);  // Dynamically create dimmed red color
+    // Fade in LEDs
+    for (int i = 0; i < NUMPIXELS; i++) {
+      myPixels.setPixelColor(i, dimmedColor);
+    }
+    myPixels.show();
+
+    // Blow air
+    switchOnPump(2);
+    blow();  // Example: setValve(2, OPEN); setValve(1, CLOSED); setValve(3, CLOSED);
+
+    delay(MappedAPI / 255); // Divide by 255 to ensure the total time matches MappedAPI
+  }
+
+  // Task 2: Fade out & Suck Air
+  for (int brightness = 255; brightness >= 0; brightness--) {
+    uint32_t dimmedColor = myPixels.Color(brightness, 0, 0);  // Dynamically create dimmed red color
+    // Fade out LEDs
+    for (int i = 0; i < NUMPIXELS; i++) {
+      myPixels.setPixelColor(i, dimmedColor);
+    }
+    myPixels.show();
+
+    // Suck air
+    switchOnPump(1);
+    suck();
+
+    delay(MappedAPI / 255); // Divide by 255 to ensure the total time matches MappedAPI
+  }
+}
